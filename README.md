@@ -13,13 +13,13 @@ Mananda のサンプルとして作った簡単なYouTubeプレイヤー
  * secret: シークレット
  * redirect_uri: アプリケーション登録時に設定したリダイレクトURL
  アプリケーションのURL  
- 例 "http://example.jp/trec/"
+ 例 "http://example.jp/ytp/"
  * scope: アプリケーション登録時に設定したスコープ  
  例 "statements/read/mine,statements/write"  
  * state: ※プログラムが動的に生成
  * actIdPrefix: アクティビティIDのプレフィクス  
  世界中で一意となるようにすること。通常は自身のドメイン名＋パス名  
- 例 "http://example.jp/xapi/activity/trec/"  
+ 例 "http://example.jp/xapi/activity/ytp/"  
  * my_scheme: verb, object, context の id プレフィックスに使用する文字列
  世界中で一意となるようにすること。通常は自身のドメイン名＋パス名  
  例 "http://example.jp/xapi/"  
