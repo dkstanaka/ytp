@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8">
+		<title>xAPIサンプルアプリケーション</title>
+		<script type="text/javascript" src="js/jquery-1.11.1.min.js"></script>
+		<script type="text/javascript" src="js/tincan-min.js"></script>
+		<script type="text/javascript" src="js/jquery.storageapi.min.js"></script>
+		<script type="text/javascript" src="js/jquery.shadow.js"></script>
+		<script type="text/javascript" src="js/jquery.easing.1.3.js"></script>
+		<script type="text/javascript" src="js/sha256.min.js"></script>
+		<script type="text/javascript" src="js/heatmap.min.js"></script>
+		<script type="text/javascript" src="js/splustar-conf.js"></script>
+		<script type="text/javascript" src="js/splustar-client.js"></script>
+		<script type="text/javascript" src="js/splustar-appspec.js"></script>
+		<script type="text/javascript" src="https://www.youtube.com/iframe_api"></script>
+		<link rel="stylesheet" type="text/css" href="style/jquery.shadow.css">
+		<link rel="stylesheet" type="text/css" href="style/splustar-ytp.css">
+	</head>
+	<body>
+	<!-- embedded youtube player section -->
+	<div id="myplayer"></div>
+	<script>
+		var tag = document.createElement('script');
+		tag.src = "https://www.youtube.com/iframe_api";
+		var firstScriptTag = document.getElementsByTagName('script')[0];
+		firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+	</script>
+	<!-- heatmap section -->
+	<div id="heatmap" class="heatmap"></div>
+	<!-- youtube event history section -->
+	<div id="footprint" class="rel-block">
+		<ul id="videoEvents">
+			<li class="eventList">
+				<div class="eventOuter">
+				<p id="startPointOfTheRecords">START POINT</p>
+			</li>
+		</ul>
+	</div>
+	<!-- spinner -->
+	<div id="spinner">
+		<img src="img/ajaxSpinner.gif">
+	</div>
+	<script type="text/javascript">
+	// config
+	var conf = confLib.getConf();
+	var acquiredStmt, videoId;
+			
+	// deine global object
+	var player;
+	var client = new Client(conf);
+	var appSpec = new AppSpec();
+	var ltArray = new Array();
+	
+	var ATKEY = conf.access_token_key;
+	var RTKEY = conf.refresh_token_key;
+			
+	var lastPos = 0, prevPos = 0;
+	var hmParam;
+	// client settings
+	client.setAccessTokenKey(ATKEY);
+	client.setRefreshTokenKey(RTKEY);
+	// heatmap instance
+	var heatmapInstance = h337.create({
+	  container: document.querySelector('.heatmap'),
+	  radius: 20
+	});
+	
+	/*
+	 * heatmap functions
+	 *
+	 */
+	function setHmData(hmp) {
+		
+		for (var i = 0; i < hmp.len; i++) {
+			y = 20;
+			var dp = {
+				x: i/hmp.len * hmp.width,
+				y: y,
+				value: hmp.counter[i]
+			};
+			//heatmapInstance.addData(dp);
+			hmp.points[i] = dp;
+		}
+		data = {
+			max: hmp.max,
+			data: hmp.points
+		};
+		heatmapInstance.setData(data);
+		
+	}
+	
+	function initHeatmap() {
+		var len = Math.round(player.getDuration());
+		var	points = new Array(len);
+		var	counter = new Array(len);
+		
+		for (var i = 0; i < len; i++)
+			counter[i] = 0;
+		
+		var hw = $("#myplayer").width()*0.96,
+				hh = $("#myplayer").height()*0.1;
+				
+		return {
+			max: 0,
+			min: 0,
+			width: hw,
+			height: hh,
+			len: len,
+			points: points,
+			counter
+		};
+	}
+	/*
+	 * youtube functions
+	 *
+	 */
+	
+	function onYouTubeIframeAPIReady() {
+		player = new YT.Player('myplayer', {
+			origin: appSpec.getOrigin(),
+			width: '836',
+			height: '435',
+			videoId: 'c7ROVdcyk7s',
+			events: {
+				'onReady': onPlayerReady,
+				'onStateChange': onPlayerStateChange
+			}
+		});
+	}
+	
+	function onPlayerReady(event) {
+		activityId = conf.actIdPrefix +
+									event.target.getVideoData().video_id;
+		hmParam = initHeatmap();
+		updateEventHistory(activityId, hmParam);
+		//event.target.playVideo();
+	}
+	
+	function updateEventHistory(activityId, hmParam) {
+		if (!conf.offline) {
+			var opt = {
+				limit: 0
+			};
+			startSpinner();
+			client.getStatements(activityId, opt, function(d){
+				stopSpinner();
+				acquiredStmt = JSON.parse(JSON.stringify(d));
+				if (acquiredStmt.statements !== undefined) {
+					var stmtLen = acquiredStmt.statements.length;
+					if (stmtLen > 0) {
+						acquiredStmt.statements.reverse().forEach(function(stmtObj){
+							addVideoEvent(stmtObj);
+						});
+						setHmData(hmParam);
+					}
+				}
+			});
+		}
+	}
+	
+	function onPlayerStateChange(event) {
+		switch(event.data) {
+			case YT.PlayerState.ENDED:
+				r = trackingActivity("ended");
+				break;
+			case YT.PlayerState.PLAYING:
+				r = trackingActivity("playing");
+				break;
+			case YT.PlayerState.PAUSED:
+				r = trackingActivity("paused");
+				break;
+			case YT.PlayerState.BUFFERING:
+				r = trackingActivity("buffering");
+				break;
+			case YT.PlayerState.CUED:
+				r = trackingActivity("cued");
+				break;
+			default:
+				return;
+		}
+		if (r.verb != undefined) {
+			if (!conf.offline)
+				client.sendStatement(makeTCSObject(r), function(){
+					setHmData(hmParam);
+				});
+				
+			addVideoEvent(makeTCSObject(r));
+		}
+	}
+	/*
+	 * generating statement & redering functions
+	 *
+	 */
+	function makeTCSObject(ytObj) {
+		var actor = new TinCan.Agent();
+		actor = {
+				name: "dummy, change later",
+				mbox: "mailto:dummy@change.later.jp"
+		};
+		
+		var verb = new TinCan.Verb(),
+				activity = new TinCan.Activity(),
+				activityDefinition = new TinCan.ActivityDefinition(),
+				context = new TinCan.Context(),
+				contextActivities = new TinCan.ContextActivities(),
+				statement = new TinCan.Statement();
+				
+		verb.id = ytObj.verb.id;
+		verb.display = ytObj.verb.display;
+		
+		activity.id = conf.actIdPrefix + ytObj.id;
+		activityDefinition.type = "http://activitystrea.ms/schema/1.0/application";
+		activityDefinition.name = {
+			"ja-JP": ytObj.title
+		}
+		activity.definition = activityDefinition;
+		
+		extKey = "http://my.splustar.com/xapi/ext/current-point";
+		if (ytObj.state == "paused" || ytObj.state == "ended") {
+			extKey = "http://id.tincanapi.com/extension/ending-point";
+		}
+		else if (ytObj.state == "playing") {
+			extKey = "http://id.tincanapi.com/extension/starting-point";
+		}
+		var ext = {
+			"http://id.tincanapi.com/extension/duration": ytObj.duration,
+			"http://my.splustar.com/xapi/ext/volume": ytObj.volume,
+			"http://my.splustar.com/xapi/ext/isMuted": ytObj.isMuted,
+			"http://my.splustar.com/xapi/ext/quality": ytObj.quality,
+			"http://my.splustar.com/xapi/ext/date": ytObj.date
+		}
+		ext[extKey] = ytObj.currentTime;
+		context.extensions = ext;
+		
+		statement.actor = actor;
+		statement.verb = verb;
+		statement.object = activity;
+		statement.context = context;
+		
+		var tincan = new TinCan();
+		var stmt = tincan.prepareStatement(statement);
+		
+		// ステートメントの掃除
+		var stmtStr = JSON.stringify(stmt, function(k,v){
+			if (v == null)
+				return undefined;
+			else if (k == "raw" || k == "min" || k == "max")
+				return Number(v);
+			else if (k == "target" || k == "degraded")
+				return undefined;
+			else
+				return v;
+		});
+		
+		return JSON.parse(stmtStr);
+	}
+	
+	function trackingActivity(s) {
+		var dt = new Date();
+		return {
+			title: player.getVideoData().title,
+			id: player.getVideoData().video_id,
+			currentTime: player.getCurrentTime(),
+			duration: player.getDuration(),
+			volume: player.getVolume(),
+			isMuted: player.isMuted(),
+			quality: player.getPlaybackQuality(),
+			date: Math.floor(dt.getTime()/1000),
+			state: s,
+			verb: makeVerb(s)
+		}
+		//return result;
+	}
+	
+	function makeVerb(word) {
+		switch(word) {
+			case "ended":
+				return {
+					id: "http://adlnet.gov/expapi/verbs/completed",
+					display: {
+						"en-US": "completed",
+						"ja-JP": "終了した"
+					}
+				}
+				break;
+			case "playing":
+				return {
+					id: "http://activitystrea.ms/schema/1.0/play",
+					display: {
+						"en-US": "played",
+						"ja-JP": "再生した"
+					}
+				}
+				break;
+			case "paused":
+				return {
+					id: "http://id.tincanapi.com/verb/paused",
+					display: {
+						"en-US": "paused",
+						"ja-JP": "一時停止した"
+					}
+				}
+				break;
+			default:
+				return;
+		}
+	}
+	
+	function appendLog(lastPos, prevPos, endingPoint, startingPoint, p) {
+		var lp = Math.round(lastPos),
+				pp = Math.round(prevPos);
+				
+		function updateHeatmap() {
+			for (var i = s; i < e; i++) {
+				var offset = 1;
+				if (hmParam.counter[i] == 0)
+					offset = 3;
+				hmParam.counter[i] += offset;
+				hmParam.max = Math.max(hmParam.max, hmParam.counter[i]);
+			}
+		}
+		
+		function getGap() {
+			var ltaLen = ltArray.length;
+			if (ltaLen > 1) {
+				var ltGap = ltArray[ltaLen - 1] - ltArray[ltaLen - 2];
+				return ltGap;
+			}
+			else {
+				return false;
+			}
+		}
+		
+		if (p.state == "paused" || p.state == "completed") {
+			var s = pp, e = pp + getGap();
+			updateHeatmap();
+		}
+		
+		$("#videoEvents li.eventList:first")
+			.before(
+			'<li class="eventList">' +
+			'<div class="eventOuter">' +
+			'<div class="eventTitle"><span class="state">[' + p.state + ']</span>&nbsp;' + p.title + '</div>' +
+			'<div class="eventTime"><div class="itemHeader">duration:</div>' +
+			'<div class="itemBody">' + p.duration + '</div></div>' + 
+			'<div class="eventTime"><div class="itemHeader">starting point:</div>' +
+			'<div class="itemBody">' + startingPoint + '</div>' +
+			'</div>' +
+			'<div class="eventTime"><div class="itemHeader">ending point:</div>' +
+			'<div class="itemBody">' + endingPoint + '</div></div>' +
+			'<div class="eventProp"><div class="itemHeader">quality:</div>' +
+			'<div class="itemBody">' + p.quality + '</div></div>' +
+			'<div class="eventProp"><div class="itemHeader">volume:</div>' +
+			'<div class="itemBody">' + Math.round(p.volume) + '</div></div>' +
+			'<div class="eventProp"><div class="itemHeader">isMute:</div>' +
+			'<div class="itemBody">' + p.isMuted + '</div></div>' + 
+			'<div class="graphArea"><div class="prevPos"></div><div class="lastPos"></div></div></div>' +
+			'</li>'
+			)
+			.parent("#videoEvents")
+			.find("li.eventList:first")
+			.hide()
+			.slideDown(600, 'easeOutBounce', function(){
+				$(this).children(".eventOuter:first").shadow('raised');
+				
+				var gaObj = $(this).find(".graphArea:first"),
+						lpObj = $(gaObj).children(".lastPos:first"),
+						ppObj = $(gaObj).children(".prevPos:first"),
+						gaWidth = gaObj.width() - 26;
+						
+				var duration = p.duration;
+				
+				var lpLeft = Math.round(gaWidth * lastPos/duration) + 14,
+						ppLeft = Math.round(gaWidth * prevPos/duration) + 14;
+						
+				lpObj.hide().offset({left: lpLeft}).fadeIn();
+				ppObj.hide().offset({left: ppLeft}).fadeIn();
+			});
+	}
+	
+	function addVideoEvent(stmtObj) {
+		var cntExt = stmtObj.context.extensions,
+				objDef = stmtObj.object.definition,
+				verbDisp = stmtObj.verb.display;
+				
+		var params = {
+					state: verbDisp['en-US'],
+					title: objDef.name['ja-JP'],
+					duration: cntExt['http://id.tincanapi.com/extension/duration'],
+					volume: cntExt['http://my.splustar.com/xapi/ext/volume'],
+					quality: cntExt['http://my.splustar.com/xapi/ext/quality'],
+					isMuted: cntExt['http://my.splustar.com/xapi/ext/isMuted']
+		};
+		
+		ltArray.push(cntExt['http://my.splustar.com/xapi/ext/date']);
+		if (params.state == 'played') {
+			var startingPoint = cntExt['http://id.tincanapi.com/extension/starting-point'],
+					endingPoint = '-';
+			
+			prevPos = lastPos;
+			lastPos = startingPoint;
+			appendLog(lastPos, prevPos, endingPoint, startingPoint, params);
+		}
+		
+		if (params.state == 'paused' || params.state == 'completed') {
+			var startingPoint = '-',
+					endingPoint = cntExt['http://id.tincanapi.com/extension/ending-point'];
+			
+			prevPos = lastPos;
+			lastPos = endingPoint;
+			appendLog(lastPos, prevPos, endingPoint, startingPoint, params);
+		}
+	}
+	
+	function startSpinner() {
+		var pw = $("#myplayer").width();
+		var spinnerTop = ($(window).height() - pw/10)/2,
+				spinnerLeft = (pw - pw * 0.1)/2;
+				
+		$("#spinner").css({
+			top: spinnerTop,
+			left: spinnerLeft
+		}).fadeIn();
+	}
+	
+	function stopSpinner() {
+		$("#spinner").fadeOut();
+	}
+	
+	$(document).ready(function(){
+		//onYouTubeIframeAPIReady();
+		if (client.getSession(ATKEY) == undefined || client.getSession(ATKEY).length <= 1) {
+			buf = client.checkCode();
+			if (buf.code == undefined) {
+				client.startOAuth();
+			} else {
+				client.setCode(buf.code);
+				client.requestToken();
+			}
+		}
+		else if (client.getSession(RTKEY) !== undefined) {
+			client.refreshAccessToken();
+		}
+		$(".eventOuter").shadow('raised');
+	});
+	</script>
+	</body>
+</html>
