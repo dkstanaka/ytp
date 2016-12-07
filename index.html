@@ -102,7 +102,7 @@
 				hh = $("#myplayer").height()*0.1;
 				
 		return {
-			max: 0,
+			max: 1000,
 			min: 0,
 			width: hw,
 			height: hh,
@@ -134,7 +134,12 @@
 									event.target.getVideoData().video_id;
 		hmParam = initHeatmap();
 		updateEventHistory(activityId, hmParam);
-		//event.target.playVideo();
+		appSpec.setDuration(event.target.getDuration());
+	}
+	
+	function callUpdateEventHistory(aid) {
+		hmParam = initHeatmap();
+		updateEventHistory(aid, hmParam);
 	}
 	
 	function updateEventHistory(activityId, hmParam) {
@@ -166,6 +171,10 @@
 				break;
 			case YT.PlayerState.PLAYING:
 				r = trackingActivity("playing");
+				if (appSpec.getDuration() == 0) {
+					appSpec.setDuration(player.getDuration());
+					callUpdateEventHistory(conf.actIdPrefix + videoId);
+				}
 				break;
 			case YT.PlayerState.PAUSED:
 				r = trackingActivity("paused");
@@ -175,6 +184,7 @@
 				break;
 			case YT.PlayerState.CUED:
 				r = trackingActivity("cued");
+				appSpec.setDuration(player.getDuration());
 				break;
 			default:
 				return;
@@ -312,12 +322,22 @@
 				pp = Math.round(prevPos);
 				
 		function updateHeatmap() {
-			for (var i = s; i < e; i++) {
-				var offset = 1;
-				if (hmParam.counter[i] == 0)
-					offset = 3;
-				hmParam.counter[i] += offset;
-				hmParam.max = Math.max(hmParam.max, hmParam.counter[i]);
+			//console.log("s: " + s + " e:" + e + " counter: " + hmParam.counter.length + " duration: " + appSpec.getDuration() + " max: " + hmParam.max + " min: " + hmParam.min);
+			if (e < Math.floor(appSpec.getDuration())) {
+				for (var i = s; i < e; i++) {
+					if (i < Math.floor(appSpec.getDuration())) {
+						var offset = 1;
+						if (hmParam.counter[i] == 0)
+							offset = 3;
+						hmParam.counter[i] += offset;
+						if (hmParam.max == 1000 && hmParam.counter[i] > 0) {
+							hmParam.max = hmParam.counter[i];
+						}
+						else {
+							hmParam.max = Math.max(hmParam.max, hmParam.counter[i]);
+						}
+					}
+				}
 			}
 		}
 		

@@ -3,9 +3,18 @@
  * Splustar.com
  */
 function AppSpec() {
-	this.origin = "origin_for_your_client";
+	this.origin = "http://my.splustar.com";
+	this.duration = 0;
 };
 
 AppSpec.prototype.getOrigin = function() {
 	return this.origin;
+}
+
+AppSpec.prototype.getDuration = function() {
+	return this.duration;
+}
+
+AppSpec.prototype.setDuration = function(duration) {
+	this.duration = duration;
 }
