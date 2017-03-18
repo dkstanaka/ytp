@@ -3,7 +3,7 @@
  * Splustar.com
  */
 function AppSpec() {
-	this.origin = "http://my.splustar.com";
+	this.origin = "https://my.splustar.com";
 	this.duration = 0;
 };
 

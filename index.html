@@ -57,6 +57,7 @@
 			
 	var lastPos = 0, prevPos = 0;
 	var hmParam;
+	var playerHeight;
 	// client settings
 	client.setAccessTokenKey(ATKEY);
 	client.setRefreshTokenKey(RTKEY);
@@ -130,6 +131,7 @@
 	}
 	
 	function onPlayerReady(event) {
+		playerHeight = $("#player").height();
 		activityId = conf.actIdPrefix +
 									event.target.getVideoData().video_id;
 		hmParam = initHeatmap();
@@ -462,6 +464,12 @@
 		else if (client.getSession(RTKEY) !== undefined) {
 			client.refreshAccessToken();
 		}
+		
+		var hmHeight = $("#heatmap").height(),
+				hmMarginTop = $("#heatmap").css("margin-top").replace("px", "");
+				
+		var fpHeight = $(window).height() - 836/1.7 - hmHeight - hmMarginTop * 2;
+		$("#footprint").height(fpHeight);
 		$(".eventOuter").shadow('raised');
 	});
 	</script>
