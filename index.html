@@ -228,20 +228,19 @@
 		}
 		activity.definition = activityDefinition;
 		
-		extKey = "http://my.splustar.com/xapi/ext/current-point";
+		extKey = conf.my_scheme + "ext/current-point";
 		if (ytObj.state == "paused" || ytObj.state == "ended") {
 			extKey = "http://id.tincanapi.com/extension/ending-point";
 		}
 		else if (ytObj.state == "playing") {
 			extKey = "http://id.tincanapi.com/extension/starting-point";
 		}
-		var ext = {
-			"http://id.tincanapi.com/extension/duration": ytObj.duration,
-			"http://my.splustar.com/xapi/ext/volume": ytObj.volume,
-			"http://my.splustar.com/xapi/ext/isMuted": ytObj.isMuted,
-			"http://my.splustar.com/xapi/ext/quality": ytObj.quality,
-			"http://my.splustar.com/xapi/ext/date": ytObj.date
-		}
+		var ext = {};
+		ext[conf.my_scheme + 'ext/volume'] = ytObj.volume;
+		ext[conf.my_scheme + 'ext/isMuted'] = ytObj.isMuted;
+		ext[conf.my_scheme + 'ext/quality'] = ytObj.quality;
+		ext[conf.my_scheme + 'ext/date'] = ytObj.date;
+		
 		ext[extKey] = ytObj.currentTime;
 		context.extensions = ext;
 		
@@ -410,12 +409,12 @@
 					state: verbDisp['en-US'],
 					title: objDef.name['ja-JP'],
 					duration: cntExt['http://id.tincanapi.com/extension/duration'],
-					volume: cntExt['http://my.splustar.com/xapi/ext/volume'],
-					quality: cntExt['http://my.splustar.com/xapi/ext/quality'],
-					isMuted: cntExt['http://my.splustar.com/xapi/ext/isMuted']
+					volume: cntExt[conf.my_scheme + 'ext/volume'],
+					quality: cntExt[conf.my_scheme + 'ext/quality'],
+					isMuted: cntExt[conf.my_scheme + 'ext/isMuted']
 		};
 		
-		ltArray.push(cntExt['http://my.splustar.com/xapi/ext/date']);
+		ltArray.push(cntExt[conf.my_scheme + 'ext/date']);
 		if (params.state == 'played') {
 			var startingPoint = cntExt['http://id.tincanapi.com/extension/starting-point'],
 					endingPoint = '-';
