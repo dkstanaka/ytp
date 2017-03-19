@@ -236,6 +236,7 @@
 			extKey = "http://id.tincanapi.com/extension/starting-point";
 		}
 		var ext = {};
+		ext['http://id.tincanapi.com/extension/duration'] = ytObj.duration;
 		ext[conf.my_scheme + 'ext/volume'] = ytObj.volume;
 		ext[conf.my_scheme + 'ext/isMuted'] = ytObj.isMuted;
 		ext[conf.my_scheme + 'ext/quality'] = ytObj.quality;
