@@ -354,6 +354,13 @@
 			}
 		}
 		
+		function getRoundedTime(t) {
+			if (typeof t === "number")
+				return Math.round(t*1000)/1000;
+			else
+				return t;
+		}
+		
 		if (p.state == "paused" || p.state == "completed") {
 			var s = pp, e = pp + getGap();
 			updateHeatmap();
@@ -365,12 +372,12 @@
 			'<div class="eventOuter">' +
 			'<div class="eventTitle"><span class="state">[' + p.state + ']</span>&nbsp;' + p.title + '</div>' +
 			'<div class="eventTime"><div class="itemHeader">duration:</div>' +
-			'<div class="itemBody">' + p.duration + '</div></div>' + 
+			'<div class="itemBody">' + getRoundedTime(p.duration) + '</div></div>' + 
 			'<div class="eventTime"><div class="itemHeader">starting point:</div>' +
-			'<div class="itemBody">' + startingPoint + '</div>' +
+			'<div class="itemBody">' + getRoundedTime(startingPoint) + '</div>' +
 			'</div>' +
 			'<div class="eventTime"><div class="itemHeader">ending point:</div>' +
-			'<div class="itemBody">' + endingPoint + '</div></div>' +
+			'<div class="itemBody">' + getRoundedTime(endingPoint) + '</div></div>' +
 			'<div class="eventProp"><div class="itemHeader">quality:</div>' +
 			'<div class="itemBody">' + p.quality + '</div></div>' +
 			'<div class="eventProp"><div class="itemHeader">volume:</div>' +
