@@ -63,7 +63,7 @@
 	client.setRefreshTokenKey(RTKEY);
 	// heatmap instance
 	var heatmapInstance = h337.create({
-	  container: document.querySelector('.heatmap'),
+	  container: document.querySelector('#heatmap'),
 	  radius: 20
 	});
 	
@@ -85,14 +85,27 @@
 		}
 		data = {
 			max: hmp.max,
+			min: 0,
 			data: hmp.points
 		};
 		heatmapInstance.setData(data);
 		
 	}
 	
-	function initHeatmap() {
-		var len = Math.round(player.getDuration());
+	function initHeatmap(e) {
+		var len;
+		console.log("initHeatmap.e: " + typeof e);
+		if (typeof e === "object") {
+			len = Math.round(e.target.getDuration());
+		}
+		else {
+			len = Math.round(player.getDuration());
+		}
+		
+		if (isNaN(len))
+			len = appSpec.getDuration();
+		console.log("len: " + len);
+		
 		var	points = new Array(len);
 		var	counter = new Array(len);
 		
@@ -111,6 +124,7 @@
 			points: points,
 			counter
 		};
+		
 	}
 	/*
 	 * youtube functions
@@ -118,11 +132,13 @@
 	 */
 	
 	function onYouTubeIframeAPIReady() {
+		var pl = appSpec.getPlayList();
 		player = new YT.Player('myplayer', {
 			origin: appSpec.getOrigin(),
 			width: '836',
 			height: '435',
-			videoId: 'c7ROVdcyk7s',
+			videoId: pl[0],
+			playerVers: { html5: 1 },
 			events: {
 				'onReady': onPlayerReady,
 				'onStateChange': onPlayerStateChange
@@ -131,12 +147,17 @@
 	}
 	
 	function onPlayerReady(event) {
+		var pl = appSpec.getPlayList();
 		playerHeight = $("#player").height();
 		activityId = conf.actIdPrefix +
 									event.target.getVideoData().video_id;
-		hmParam = initHeatmap();
-		updateEventHistory(activityId, hmParam);
-		appSpec.setDuration(event.target.getDuration());
+									
+		event.target.cuePlaylist({
+			playlist: pl,
+			index: 0
+		});
+		event.target.playVideoAt(0);
+		
 	}
 	
 	function callUpdateEventHistory(aid) {
@@ -167,6 +188,9 @@
 	}
 	
 	function onPlayerStateChange(event) {
+		var videoData = event.target.getVideoData();
+		var prevVideo = appSpec.getPrevVideoId();
+		
 		switch(event.data) {
 			case YT.PlayerState.ENDED:
 				r = trackingActivity("ended");
@@ -183,10 +207,40 @@
 				break;
 			case YT.PlayerState.BUFFERING:
 				r = trackingActivity("buffering");
+				videoId = videoData.video_id;
+				if (prevVideo !== videoId) {
+					if (prevVideo.length > 0) {
+						console.log("video changed " + prevVideo + " to " + videoId);
+						if (typeof event.target.getDuration() === "number") {
+							var vd = event.target.getDuration();
+							if (vd > 0) {
+								console.log("duration: " + vd);
+								appSpec.setDuration(vd);
+								activityId = conf.actIdPrefix + videoId;
+								hmParam = initHeatmap();
+								updateEventHistory(activityId, hmParam);
+							}
+						}
+					}
+					appSpec.setPrevVideoId(videoId);
+				}
 				break;
 			case YT.PlayerState.CUED:
-				r = trackingActivity("cued");
-				appSpec.setDuration(player.getDuration());
+				if (typeof event.target.getDuration() === "number") {
+					var vd = event.target.getDuration();
+					
+					if (vd > 0) {
+						r = trackingActivity("cued");
+						videoId = videoData.video_id;
+						console.log("case YT.PlayerState.CUED:");
+						console.log(event.target.getVideoData());
+						
+						appSpec.setDuration(vd);
+						activityId = conf.actIdPrefix + videoId;
+						hmParam = initHeatmap();
+						updateEventHistory(activityId, hmParam);
+					}
+				}
 				break;
 			default:
 				return;
@@ -314,7 +368,33 @@
 					}
 				}
 				break;
+			case "cued":
+				console.log("case cued:");
+				console.log(player.getVideoData());
+				if (player.getDuration() > 0) {
+					var videoData = player.getVideoData();
+					videoId = videoData.video_id;
+					appSpec.setDuration(player.getDuration());
+				}
+				return {
+					id: conf.my_scheme + "verb/cued",
+					display: {
+						"en-US": "cued",
+						"ja-JP": "キューした"
+					}
+				}
+				break;
+			case "buffering":
+				if (player.getDuration() > 0) {
+					var videoData = player.getVideoData();
+					videoId = videoData.video_id;
+					appSpec.setDuration(player.getDuration());
+				}
 			default:
+				console.log("makeVerb.default:");
+				console.log("word: " + word);
+				console.log("duration: " + player.getDuration());
+				console.log(player.getVideoData());
 				return;
 		}
 	}
