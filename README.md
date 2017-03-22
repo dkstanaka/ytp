@@ -30,7 +30,7 @@ Mananda のサンプルとして作った簡単なYouTubeプレイヤー
  アプリケーションのオリジン。
 
 #### デモ
-https://splustar.com/taskapp/ytp
+https://splustar.com/taskapp/ytp-jaxa
 
 ---
 #### 注記
