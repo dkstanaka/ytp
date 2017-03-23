@@ -1,5 +1,5 @@
-# ytp
-Mananda のサンプルとして作った簡単なYouTubeプレイヤー
+# ytp-jaxa
+Mananda のサンプルとして作った簡単なYouTubeプレイヤーのプレイリスト対応版。
 
 #### 使い方
 1. Mananda DeveloperサイトのMananda OAuth API Betaページを参考にアプリケーション登録を行う  
@@ -27,7 +27,9 @@ Mananda のサンプルとして作った簡単なYouTubeプレイヤー
  * refresh_token_key: リフレッシュトークンの保存に使うキー文字列
 6. js/splustar-appspec.js の編集  
  * line 6: this.origin
- アプリケーションのオリジン。
+ アプリケーションのオリジン。  
+ * line 8: this.playlist
+ プレイリストに登録するYouTubeのVideoID  
 
 #### デモ
 https://splustar.com/taskapp/ytp-jaxa
