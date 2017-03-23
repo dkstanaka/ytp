@@ -64,7 +64,8 @@
 	// heatmap instance
 	var heatmapInstance = h337.create({
 	  container: document.querySelector('#heatmap'),
-	  radius: 20
+		backgroundColor: "#000",
+	  radius: $("#heatmap").height()/3
 	});
 	
 	/*
@@ -72,12 +73,12 @@
 	 *
 	 */
 	function setHmData(hmp) {
+		var hh = $("#heatmap").height();
 		
 		for (var i = 0; i < hmp.len; i++) {
-			y = 20;
 			var dp = {
 				x: i/hmp.len * hmp.width,
-				y: y,
+				y: hh/2,
 				value: hmp.counter[i]
 			};
 			//heatmapInstance.addData(dp);
@@ -404,7 +405,12 @@
 				pp = Math.round(prevPos);
 				
 		function updateHeatmap() {
-			//console.log("s: " + s + " e:" + e + " counter: " + hmParam.counter.length + " duration: " + appSpec.getDuration() + " max: " + hmParam.max + " min: " + hmParam.min);
+			/*
+			console.log("s: " + s + " e:" + e 
+								+ " counter: " + hmParam.counter.length 
+								+ " duration: " + appSpec.getDuration() 
+								+ " max: " + hmParam.max + " min: " + hmParam.min);
+			*/
 			if (e < Math.floor(appSpec.getDuration())) {
 				for (var i = s; i < e; i++) {
 					if (i < Math.floor(appSpec.getDuration())) {
