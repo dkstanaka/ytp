@@ -76,13 +76,15 @@
 		var hh = $("#heatmap").height();
 		
 		for (var i = 0; i < hmp.len; i++) {
+			var cv = hmp.counter[i];
+			if (cv <= 0) {
+				cv = -1;
+			}
 			var dp = {
 				x: i/hmp.len * hmp.width,
-				//x: Math.round(i/hmp.len * hmp.width / 10) * 10,
 				y: hh/2,
-				value: hmp.counter[i]
+				value: cv
 			};
-			//heatmapInstance.addData(dp);
 			hmp.points[i] = dp;
 		}
 		data = {
