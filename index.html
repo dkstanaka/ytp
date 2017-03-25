@@ -65,7 +65,7 @@
 	var heatmapInstance = h337.create({
 	  container: document.querySelector('#heatmap'),
 		backgroundColor: "#000",
-	  radius: $("#heatmap").height()/3
+	  radius: $("#heatmap").height()/2.4
 	});
 	
 	/*
@@ -78,6 +78,7 @@
 		for (var i = 0; i < hmp.len; i++) {
 			var dp = {
 				x: i/hmp.len * hmp.width,
+				//x: Math.round(i/hmp.len * hmp.width / 10) * 10,
 				y: hh/2,
 				value: hmp.counter[i]
 			};
@@ -149,6 +150,7 @@
 	}
 	
 	function onPlayerReady(event) {
+		var idx = 1;
 		var pl = appSpec.getPlayList();
 		playerHeight = $("#player").height();
 		activityId = conf.actIdPrefix +
@@ -156,15 +158,22 @@
 									
 		event.target.cuePlaylist({
 			playlist: pl,
-			index: 0
+			index: idx
 		});
-		event.target.playVideoAt(0);
+		event.target.playVideoAt(idx);
 		
 	}
 	
 	function callUpdateEventHistory(aid) {
 		hmParam = initHeatmap();
 		updateEventHistory(aid, hmParam);
+	}
+	
+	function initEventHistory(aid, callback) {
+		$(".userEvent").remove();
+		if (typeof callback === "function") {
+			callback();
+		}
 	}
 	
 	function updateEventHistory(activityId, hmParam) {
@@ -219,8 +228,12 @@
 								console.log("duration: " + vd);
 								appSpec.setDuration(vd);
 								activityId = conf.actIdPrefix + videoId;
-								hmParam = initHeatmap();
-								updateEventHistory(activityId, hmParam);
+								initEventHistory(activityId, function(){
+									hmParam = initHeatmap();
+									updateEventHistory(activityId, hmParam);
+								});
+								//hmParam = initHeatmap();
+								//updateEventHistory(activityId, hmParam);
 							}
 						}
 					}
@@ -236,11 +249,14 @@
 						videoId = videoData.video_id;
 						console.log("case YT.PlayerState.CUED:");
 						console.log(event.target.getVideoData());
-						
 						appSpec.setDuration(vd);
 						activityId = conf.actIdPrefix + videoId;
-						hmParam = initHeatmap();
-						updateEventHistory(activityId, hmParam);
+						initEventHistory(activityId, function(){
+							hmParam = initHeatmap();
+							updateEventHistory(activityId, hmParam);
+						});
+						//hmParam = initHeatmap();
+						//updateEventHistory(activityId, hmParam);
 					}
 				}
 				break;
@@ -455,7 +471,7 @@
 		
 		$("#videoEvents li.eventList:first")
 			.before(
-			'<li class="eventList">' +
+			'<li class="eventList userEvent">' +
 			'<div class="eventOuter">' +
 			'<div class="eventTitle"><span class="state">[' + p.state + ']</span>&nbsp;' + p.title + '</div>' +
 			'<div class="eventTime"><div class="itemHeader">duration:</div>' +
