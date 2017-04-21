@@ -1,3 +1,19 @@
+#header {
+	display:block;
+	position: relative;
+	width: 836px;
+	height: 1.6em;
+	background-color: #a0c0ff;
+}
+.headerButton {
+	padding: 0 0.8em;
+	float: right;
+	background-color: #90c0ff;
+	border: 1px solid #40c0ff;
+}
+#logout {
+	right: 0;
+}
 #spinner {
 	display: none;
 	position: fixed;
@@ -109,6 +125,13 @@ span.state {
 	and (-webkit-min-device-pixel-ratio: 2)
 	and (orientation: portrait)
 {
+	#header {
+		width: 100%;
+		height: 3.2em;
+	}
+.headerButton {
+	font-size: 2em;
+}
 	#myplayer {
 		width: 100%;
 	}

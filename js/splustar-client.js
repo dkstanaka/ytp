@@ -26,6 +26,14 @@ Client.prototype.getSession = function(k) {
 	return sess.get(k);
 }
 
+Client.prototype.resetSession = function() {
+	var sess = $.sessionStorage;
+	if (this.access_token_key)
+		sess.remove(this.access_token_key);
+	if (this.refresh_token_key)
+		sess.remove(this.refresh_token_key);
+}
+
 Client.prototype.setAccessTokenKey = function(k) {
 	this.access_token_key = k;
 }

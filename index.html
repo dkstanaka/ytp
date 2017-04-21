@@ -18,6 +18,13 @@
 		<link rel="stylesheet" type="text/css" href="style/splustar-ytp.css">
 	</head>
 	<body>
+	<!--
+	<div id="header">&nbsp;
+		<div id="logout" class="headerButton">logout</div>
+		<div id="profile" class="headerButton">profile</div>
+	</div>
+	-->
+	
 	<!-- embedded youtube player section -->
 	<div id="myplayer"></div>
 	<script>
@@ -73,6 +80,7 @@
 	 *
 	 */
 	function setHmData(hmp) {
+		console.log("*** setHmData *** %O", hmp);
 		var hh = $("#heatmap").height();
 		
 		for (var i = 0; i < hmp.len; i++) {
@@ -143,7 +151,12 @@
 			width: '836',
 			height: '435',
 			videoId: pl[0],
-			playerVers: { html5: 1 },
+			playerVars: { 
+				html5: 1,
+				rel: 0,
+				loop: 0,
+				autoplay: 0 
+			},
 			events: {
 				'onReady': onPlayerReady,
 				'onStateChange': onPlayerStateChange
@@ -152,7 +165,7 @@
 	}
 	
 	function onPlayerReady(event) {
-		var idx = 1;
+		var idx = 0;
 		var pl = appSpec.getPlayList();
 		playerHeight = $("#player").height();
 		activityId = conf.actIdPrefix +
@@ -172,6 +185,7 @@
 	}
 	
 	function initEventHistory(aid, callback) {
+	console.log("[initEventHistory(" + aid + ")]");
 		$(".userEvent").remove();
 		if (typeof callback === "function") {
 			callback();
@@ -193,6 +207,7 @@
 						acquiredStmt.statements.reverse().forEach(function(stmtObj){
 							addVideoEvent(stmtObj);
 						});
+						console.log("(1)");
 						setHmData(hmParam);
 					}
 				}
@@ -200,63 +215,104 @@
 		}
 	}
 	
+	/*
+	 * YT.PlayerState
+	 * constant definitions of each player states
+	 *  -1: UNSTARTED (未開始)
+	 *   0: ENDED (終了)
+	 *   1: PLAYING (再生中)
+	 *   2: PAUSED (一時停止)
+	 *   3: BUFFERING (バッファリング中)
+	 *   5: CUED (頭出し済み)
+	 */
 	function onPlayerStateChange(event) {
-		var videoData = event.target.getVideoData();
-		var prevVideo = appSpec.getPrevVideoId();
+		var videoData = event.target.getVideoData(),
+				videoId = videoData.video_id;;
+		var prevVideoObj = appSpec.getPrevVideoData();
+		var loaded = player.getVideoLoadedFraction();
+		var r = false;
+		
+		console.log("stateChanged! event.data: %O", event.data);
+		
+		if (prevVideoObj.hasOwnProperty('data'))
+			var prevVideo = prevVideoObj.data.video_id;
+		else
+			var prevVideo = "";
+		
+		rotateVideoData(videoData);
 		
 		switch(event.data) {
 			case YT.PlayerState.ENDED:
+				console.log("<<< ended >>>!");
 				r = trackingActivity("ended");
 				break;
 			case YT.PlayerState.PLAYING:
+				console.log("<<< playing >>>!");
 				r = trackingActivity("playing");
-				if (appSpec.getDuration() == 0) {
-					appSpec.setDuration(player.getDuration());
-					callUpdateEventHistory(conf.actIdPrefix + videoId);
-				}
+				appSpec.setDupVideoMeta(player);
 				break;
 			case YT.PlayerState.PAUSED:
+				console.log("<<< paused >>>!");
 				r = trackingActivity("paused");
+				//console.log("call callUpdateEventHistory in PAUSED@stateChange");
+				//callUpdateEventHistory(conf.actIdPrefix + videoId);
 				break;
 			case YT.PlayerState.BUFFERING:
-				r = trackingActivity("buffering");
-				videoId = videoData.video_id;
+				console.log("<<< buffering >>>!");
+				//r = trackingActivity("buffering");
+				//videoId = videoData.video_id;
+				console.log("* " + loaded + " % of " + videoId + " was loaded");
+				
 				if (prevVideo !== videoId) {
-					if (prevVideo.length > 0) {
-						console.log("video changed " + prevVideo + " to " + videoId);
+					if (prevVideo !== "") {
+						console.log("video will be changed " + prevVideo + " to " + videoId);
 						if (typeof event.target.getDuration() === "number") {
 							var vd = event.target.getDuration();
 							if (vd > 0) {
 								console.log("duration: " + vd);
+								/*
 								appSpec.setDuration(vd);
 								activityId = conf.actIdPrefix + videoId;
 								initEventHistory(activityId, function(){
 									hmParam = initHeatmap();
 									updateEventHistory(activityId, hmParam);
 								});
-								//hmParam = initHeatmap();
-								//updateEventHistory(activityId, hmParam);
+								*/
+								activityId = conf.actIdPrefix + videoId;
+								initEventHistory(activityId, function(){
+									console.log("call updateEventHistory in BUFFERING@stateChange");
+									hmParam = initHeatmap();
+									updateEventHistory(activityId, hmParam);
+								});
 							}
 						}
 					}
-					appSpec.setPrevVideoId(videoId);
+					console.log("previous videoId: " + prevVideo);
+					console.log("previous videoData: %O", prevVideoObj);
+					appSpec.setPrevVideoId(prevVideo);
+					console.log("(A)");
+					//rotateVideoData(videoData);
 				}
 				break;
 			case YT.PlayerState.CUED:
+				console.log("<<< cued >>>!");
+				console.log("* " + loaded + " % of " + videoData.video_id + " was loaded");
 				if (typeof event.target.getDuration() === "number") {
 					var vd = event.target.getDuration();
 					
 					if (vd > 0) {
 						r = trackingActivity("cued");
-						videoId = videoData.video_id;
-						console.log("case YT.PlayerState.CUED:");
-						console.log(event.target.getVideoData());
+						//videoId = videoData.video_id;
+						console.log("case YT.PlayerState.CUED: %O", event.target.getVideoData());
 						appSpec.setDuration(vd);
-						activityId = conf.actIdPrefix + videoId;
-						initEventHistory(activityId, function(){
-							hmParam = initHeatmap();
-							updateEventHistory(activityId, hmParam);
-						});
+						if (prevVideo !== videoId) {
+							activityId = conf.actIdPrefix + videoId;
+							initEventHistory(activityId, function(){
+								console.log("call updateEventHistory in CUED@stateChange");
+								hmParam = initHeatmap();
+								updateEventHistory(activityId, hmParam);
+							});
+						}
 						//hmParam = initHeatmap();
 						//updateEventHistory(activityId, hmParam);
 					}
@@ -265,13 +321,21 @@
 			default:
 				return;
 		}
-		if (r.verb != undefined) {
-			if (!conf.offline)
-				client.sendStatement(makeTCSObject(r), function(){
-					setHmData(hmParam);
-				});
-				
-			addVideoEvent(makeTCSObject(r));
+		if (r) {
+			if (r.hasOwnProperty('verb')) {
+				console.log("(B)");
+				//rotateVideoData(videoData);
+				if (!conf.offline) {
+					var tcs = makeTCSObject(r);
+					console.log(">>> sendStatement: %O", tcs);
+					client.sendStatement(tcs, function(){
+						console.log("(2)");
+						//setHmData(hmParam);
+					});
+					
+					addVideoEvent(tcs);
+				}
+			}
 		}
 	}
 	/*
@@ -279,6 +343,7 @@
 	 *
 	 */
 	function makeTCSObject(ytObj) {
+		console.log("[makeTCSObject]");
 		var actor = new TinCan.Agent();
 		actor = {
 				name: "dummy, change later",
@@ -343,30 +408,103 @@
 	}
 	
 	function trackingActivity(s) {
+		console.log("[trackingActivity(" + s + ")]");
 		var dt = new Date();
-		return {
-			title: player.getVideoData().title,
-			id: player.getVideoData().video_id,
-			currentTime: player.getCurrentTime(),
-			duration: player.getDuration(),
-			volume: player.getVolume(),
-			isMuted: player.isMuted(),
-			quality: player.getPlaybackQuality(),
-			date: Math.floor(dt.getTime()/1000),
-			state: s,
-			verb: makeVerb(s)
+		if (s === "ended" || s === "completed") {
+			var po = appSpec.getDupVideoMeta();
+			return {
+				title: po.title,
+				id: po.id,
+				currentTime: po.currentTime,
+				duration: po.duration,
+				volume: po.volume,
+				isMuted: po.isMuted,
+				quality: po.quality,
+				date: po.date,
+				state: s,
+				verb: makeVerb(s)
+			}
 		}
-		//return result;
+		else {
+			return {
+				title: player.getVideoData().title,
+				id: player.getVideoData().video_id,
+				currentTime: player.getCurrentTime(),
+				duration: player.getDuration(),
+				volume: player.getVolume(),
+				isMuted: player.isMuted(),
+				quality: player.getPlaybackQuality(),
+				date: Math.floor(dt.getTime()/1000),
+				state: s,
+				verb: makeVerb(s)
+			}
+		}
+	}
+	
+	function checkComplete(hp) {
+		var r = true;
+		for (var c of hp.counter) {
+			if (c == 0) {
+				r = false;
+				break;
+			}
+		}
+	}
+	
+	function rotateVideoData(vd, w) {
+		console.log("[rotateVideoData]");
+		var cvd = appSpec.getCurrVideoData(),
+				pvd = appSpec.getPrevVideoData();
+				
+		console.log("* vd: %O", vd);
+		console.log("* cvd: %O", cvd);
+		console.log("* pvd: %O", pvd);
+		
+		var vdStr = JSON.stringify(vd),
+				cvdStr = JSON.stringify(cvd),
+				pvdStr = JSON.stringify(pvd);
+		
+		if (!cvd.hasOwnProperty('data')) {
+			appSpec.setCurrVideoData(vd);
+			appSpec.setPrevVideoData({});
+		}
+		else if (vdStr !== cvdStr) {
+		
+			appSpec.setVideoDataHistory({
+				"prevVideo": cvd.data,
+				"currVideo": vd
+			});
+		
+		}
 	}
 	
 	function makeVerb(word) {
+		console.log("[makeVerb(" + word + ")]");
 		switch(word) {
 			case "ended":
-				return {
-					id: "http://adlnet.gov/expapi/verbs/completed",
-					display: {
-						"en-US": "completed",
-						"ja-JP": "終了した"
+				var currVideoId = appSpec.getCurrVideoData().data.video_id;
+				var prevVideoId = appSpec.getPrevVideoData().data.video_id;
+				console.log("currVideoId: " + currVideoId + " prevVideoId: " + prevVideoId);
+				
+				//player.cueVideoById(prevVideoId, 0);
+				player.stopVideo();
+				console.log("ended");
+				if (checkComplete(hmParam)) {
+					return {
+						id: "http://adlnet.gov/expapi/verbs/completed",
+						display: {
+							"en-US": "completed",
+							"ja-JP": "終了した"
+						}
+					}
+				}
+				else {
+					return {
+						id: conf.my_scheme + "verb/ended",
+						display: {
+							"en-US": "ended",
+							"ja-JP": "視聴した"
+						}
 					}
 				}
 				break;
@@ -389,12 +527,13 @@
 				}
 				break;
 			case "cued":
-				console.log("case cued:");
-				console.log(player.getVideoData());
+				console.log("case cued: %O", player.getVideoData());
 				if (player.getDuration() > 0) {
 					var videoData = player.getVideoData();
 					videoId = videoData.video_id;
 					appSpec.setDuration(player.getDuration());
+					console.log("(C)");
+					//rotateVideoData(videoData, word);
 				}
 				return {
 					id: conf.my_scheme + "verb/cued",
@@ -409,12 +548,14 @@
 					var videoData = player.getVideoData();
 					videoId = videoData.video_id;
 					appSpec.setDuration(player.getDuration());
+					console.log("(D)");
+					//rotateVideoData(videoData, word);
 				}
 			default:
 				console.log("makeVerb.default:");
 				console.log("word: " + word);
 				console.log("duration: " + player.getDuration());
-				console.log(player.getVideoData());
+				console.log("videoData: %O", player.getVideoData());
 				return;
 		}
 	}
@@ -430,12 +571,13 @@
 								+ " duration: " + appSpec.getDuration() 
 								+ " max: " + hmParam.max + " min: " + hmParam.min);
 			*/
+			//console.log("*** duration1: " + appSpec.getDuration());
 			if (e < Math.floor(appSpec.getDuration())) {
-				for (var i = s; i < e; i++) {
+				for (var i = s; i <= e; i++) {
 					if (i < Math.floor(appSpec.getDuration())) {
 						var offset = 1;
 						if (hmParam.counter[i] == 0)
-							offset = 3;
+							offset = 2;
 						hmParam.counter[i] += offset;
 						if (hmParam.max == 1000 && hmParam.counter[i] > 0) {
 							hmParam.max = hmParam.counter[i];
@@ -466,8 +608,9 @@
 				return t;
 		}
 		
-		if (p.state == "paused" || p.state == "completed") {
+		if (p.state === "paused" || p.state === "completed" || p.state === "ended") {
 			var s = pp, e = pp + getGap();
+			if (p.state === "ended") console.log("[[ended]] s=" + s + ", e=" + e);
 			updateHeatmap();
 		}
 		
@@ -537,7 +680,7 @@
 			appendLog(lastPos, prevPos, endingPoint, startingPoint, params);
 		}
 		
-		if (params.state == 'paused' || params.state == 'completed') {
+		if (params.state == 'paused' || params.state == 'completed' || params.state == 'ended') {
 			var startingPoint = '-',
 					endingPoint = cntExt['http://id.tincanapi.com/extension/ending-point'];
 			
@@ -583,6 +726,10 @@
 		var fpHeight = $(window).height() - 836/1.7 - hmHeight - hmMarginTop * 2;
 		$("#footprint").height(fpHeight);
 		$(".eventOuter").shadow('raised');
+		
+		$("#logout").click(function(){
+			client.resetSession();
+		});
 	});
 	</script>
 	</body>
