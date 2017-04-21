@@ -3,9 +3,9 @@
  * Splustar.com
  */
 function AppSpec() {
-	this.origin = "https://my.splustar.com";
+	this.origin = "set_origin_of_your_app";
 	this.duration = 0;
-	this.playlist = new Array("12_LpNeAxyw", "NYUwUUbfJOM", "_393OZGncrc");
+	this.playlist = new Array("video_id_1", "video_id_2", "video_id_3", ...);
 	this.prevVideoId = "";
 	this.prevVideoData = {};
 	this.currVideoData = {};
